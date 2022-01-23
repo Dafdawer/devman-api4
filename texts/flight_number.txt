@@ -1,2 +1,0 @@
-flight_number_to_use: 107
-secondary_flight: 108
