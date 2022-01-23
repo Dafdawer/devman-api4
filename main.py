@@ -38,6 +38,7 @@ def get_picture(picture_url, file_name):
         print(f'unable to create {file_name} file')
         return 0
 
+
 def fetch_spacex_last_launch():
 
     print('fetching SpaceX launch fotos...')
@@ -122,6 +123,7 @@ def get_apod_url_list(images_number, nasa_api_key):
         url_list[title] = url
     
     return url_list
+
 
 def get_apod_images(url_list):
     print('Fetching a set of random NASA APOD images...')
