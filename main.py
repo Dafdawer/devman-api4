@@ -127,6 +127,9 @@ def get_apod_url_list(images_number, nasa_api_key):
 
 def get_apod_images(url_list):
     print('Fetching a set of random NASA APOD images...')
+    if not url_list:
+        print('unable to get a set of links, terminating process')
+        return
 
     save_path = f'./images/nasa/apod/random/{datetime.today().date()}/'
     Path(save_path).mkdir(parents=True, exist_ok=True)
