@@ -1,7 +1,5 @@
 .env
-__pycache__
+__pycache__/
 workspace.code-workspace
-/images/
-/texts/
-images/*
-texts/*
+images/
+texts/
