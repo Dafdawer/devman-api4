@@ -1,6 +1,7 @@
-from operator import contains
+#from operator import contains
 import requests
 import os
+import telegram
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
@@ -194,11 +195,29 @@ def get_nasa_earth_images(year, month, day, nasa_api):
 def main():
     load_dotenv()
     nasa_api_key = os.getenv('NASA_API_KEY')
+    telegram_token = os.getenv('TELEGRAM_BOT_TOKEN')
+    chat_id = os.getenv('TELEGRAM_CHAT_ID')
+    bot = telegram.Bot(token=telegram_token)
+    # url =  f'https://api.telegram.org/bot{telegram_token}/getUpdates'
+
+    # response = requests.get(url)
+    # response.raise_for_status()
+    # print(response.json())
+
+
+    #print(bot.get_me())
+    # updates = bot.get_updates()[-1].message
+    # print(updates)
+
+    bot.send_message(chat_id=chat_id, text="Hello, World!")
+    #print(f'chat_id: {chat_id}')
+
+    #print(f"nasa api = {nasa_api_key}", f"telegram token = {telegram_token}", sep = '\n')
     
-    fetch_spacex_last_launch()
-    fetch_nasa_apod_last(nasa_api_key)
-    get_apod_images(get_apod_url_list(30, nasa_api_key))
-    get_nasa_earth_images('2022', '01', '15', nasa_api_key)
+    # fetch_spacex_last_launch()
+    # fetch_nasa_apod_last(nasa_api_key)
+    # get_apod_images(get_apod_url_list(30, nasa_api_key))
+    # get_nasa_earth_images('2022', '01', '15', nasa_api_key)
 
 
 
