@@ -97,11 +97,38 @@ def get_file_extention(url):
     return parsed.split('.')[-1]
 
 
-def get_apod_url_list(images_number, nasa_api_key):
+def return_single_apod_url(nasa_api_key):
+    url = 'https://api.nasa.gov/planetary/apod'
+    payload = {
+        'count': 1,
+        'api_key': nasa_api_key
+        }
+    image = {}
+    for x in range (5):
+        try:
+            response = requests.get(url, params=payload)
+            response.raise_for_status()
+            image_url = response.json()[0]['url']
+            if '.' not in image_url[-5:-2]:             # link doesn't contain a vaild file
+                print(f'not a valid link {image_url}, skipping')
+                continue
+            print(f'returning a valid link {image_url}')
+            image[response.json()[0]['title']] = image_url
+            return image
+        except (
+            requests.exceptions.HTTPError,
+            requests.exceptions.ConnectionError,
+            requests.exceptions.MissingSchema
+        ):
+            continue
+    return None
+
+
+def get_apod_url_list(number_images, nasa_api_key):
     url_list = {}
     url = 'https://api.nasa.gov/planetary/apod'
     payload = {
-        'count': images_number,
+        'count': number_images,
         'api_key': nasa_api_key
         }
 
@@ -113,22 +140,30 @@ def get_apod_url_list(images_number, nasa_api_key):
         requests.exceptions.ConnectionError,
         requests.exceptions.MissingSchema
     ):
-        print(f'failed to get a set of random NASA APOD links')
+        print('Failed to get a set of random NASA APOD links')
         return
-    
+
     links = response.json()
     
     for link in links:
+
         url = link['url']
+        if '.' not in url[-5:-2]:               # link doesn't contain a vaild file
+            continue
         title = link['title']
         url_list[title] = url
+
+    bad_links = number_images - len(url_list)   # check if we got enough links
+    if bad_links > 0:
+        for x in range(bad_links):
+            url_list.update(return_single_apod_url(nasa_api_key))
     
     return url_list
 
 
-def get_apod_images(url_list):
-    print('Fetching a set of random NASA APOD images...')
-    if not url_list:
+def get_apod_images(name_url_dict):
+
+    if not name_url_dict:
         print('unable to get a set of links, terminating process')
         return
 
@@ -136,17 +171,17 @@ def get_apod_images(url_list):
     Path(save_path).mkdir(parents=True, exist_ok=True)
 
     successfully_fetched = 0
-    print(f'saving {len(url_list)} images to the {save_path} folder')
+    print(f'saving {len(name_url_dict)} images to the {save_path} folder')
     
-    for title, url in url_list.items():
+    for title, url in name_url_dict.items():
         extension_ = get_file_extention(url)
-        if ('embed' in url) or (len(extension_) > 4):
-            pass
         file_name = f'{save_path}{title}.{extension_}'
         successfully_fetched += get_picture(url, file_name)
     
     print(f'NASA random APOD images downloaded: {successfully_fetched}')
-    print(f"couldn't download: {len(url_list) - successfully_fetched} images", '\n')
+    print(f"Couldn't download: {len(name_url_dict) - successfully_fetched} images", '\n')
+
+    return save_path
 
 
 def get_nasa_earth_images(year, month, day, nasa_api):
@@ -190,6 +225,7 @@ def get_nasa_earth_images(year, month, day, nasa_api):
 
     print(f'images downloaded: {successfully_fetched}')
     print(f"couldn't download: {len(image_list) - successfully_fetched} images")
+    return 1
 
 
 def main():
@@ -198,6 +234,10 @@ def main():
     telegram_token = os.getenv('TELEGRAM_BOT_TOKEN')
     chat_id = os.getenv('TELEGRAM_CHAT_ID')
     bot = telegram.Bot(token=telegram_token)
+
+    images = get_apod_url_list(10, nasa_api_key)
+
+    get_apod_images(images)
     # url =  f'https://api.telegram.org/bot{telegram_token}/getUpdates'
 
     # response = requests.get(url)
@@ -209,7 +249,8 @@ def main():
     # updates = bot.get_updates()[-1].message
     # print(updates)
 
-    bot.send_message(chat_id=chat_id, text="Hello, World!")
+    #bot.send_message(chat_id=chat_id, text="Hello, World!")
+    #bot.send_document(chat_id=chat_id, document=open('./images/nasa/apod/last/2022-02-08/Aurora and Light Pillars over Norway.jpg', 'rb'))
     #print(f'chat_id: {chat_id}')
 
     #print(f"nasa api = {nasa_api_key}", f"telegram token = {telegram_token}", sep = '\n')
