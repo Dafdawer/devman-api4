@@ -1,11 +1,12 @@
-#from operator import contains
+import time
 import requests
 import os
 import telegram
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from urllib.parse import urlparse
 from dotenv import load_dotenv
+from time import time
 
 
 def save_file(file_, file_name):
@@ -19,7 +20,7 @@ def save_file(file_, file_name):
 
 
 def get_picture(picture_url, file_name):
-    
+
     try:
         response = requests.get(picture_url)
         response.raise_for_status()
@@ -31,34 +32,40 @@ def get_picture(picture_url, file_name):
         print(f'couldn\'t open {picture_url} link')
         return 0
 
-    try:
-        with open(file_name, 'wb') as file:
-            file.write(response.content)
-            return 1
-    except FileNotFoundError:
-        print(f'unable to create {file_name} file')
-        return 0
+    return save_file(response.content, file_name)
 
 
-def fetch_spacex_last_launch():
+def fetch_spacex_launch_images(path_to_save):
 
     print('fetching SpaceX launch fotos...')
 
-    successfuly_fetched = 0
-    path_ = './images/spacex/'
-    Path(path_).mkdir(parents=True, exist_ok=True)
-
+    fetched_ok = 0
     url = 'https://api.spacexdata.com/v3/launches'
     payload = {"flight_number": 107}
-    response = requests.get(url, params = payload)
-    response.raise_for_status()
+    response = requests.get(url, params=payload)
+
+    try:
+        response.raise_for_status()
+    except (
+        requests.exceptions.HTTPError,
+        requests.exceptions.ConnectionError,
+        requests.exceptions.MissingSchema
+    ):
+        print(f'couldn\'t open {url} link')
+
     images = response.json()[0]['links']['flickr_images']
 
-    for image_number, image in enumerate(images):
-        successfuly_fetched += get_picture(image, f'{path_}spacex{image_number}.jpg')
+    if not path_to_save.endswith('/'):
+        path_to_save += '/'
 
-    print(f'successfully downloaded {successfuly_fetched} out of {len(images)} images,')
-    print(f'destination folder: {path_}')
+    for image_number, image in enumerate(images):
+        fetched_ok += get_picture(
+            image,
+            f'{path_to_save}spacex{image_number}.jpg'
+            )
+
+    print(f'successfully downloaded {fetched_ok} out of {len(images)} images,')
+    print(f'destination folder: {path_to_save}')
     print('\n')
 
 
@@ -87,9 +94,10 @@ def fetch_nasa_apod_last(api_key):
 
     if get_picture(apod_url, file_name) == 1:
         print(f'successfully saved last APOD to {file_name}', '\n')
-        return
+        return 1
     print('Fetching last NASA APOD was unsuccessful')
     print('\n')
+    return
 
 
 def get_file_extention(url):
@@ -104,12 +112,12 @@ def return_single_apod_url(nasa_api_key):
         'api_key': nasa_api_key
         }
     image = {}
-    for x in range (5):
+    for x in range(5):
         try:
             response = requests.get(url, params=payload)
             response.raise_for_status()
             image_url = response.json()[0]['url']
-            if '.' not in image_url[-5:-2]:             # link doesn't contain a vaild file
+            if '.' not in image_url[-5:-2]:  # no file in the link
                 print(f'not a valid link {image_url}, skipping')
                 continue
             print(f'returning a valid link {image_url}')
@@ -121,11 +129,11 @@ def return_single_apod_url(nasa_api_key):
             requests.exceptions.MissingSchema
         ):
             continue
-    return None
+    return
 
 
 def get_apod_url_list(number_images, nasa_api_key):
-    url_list = {}
+    url_dict = {}
     url = 'https://api.nasa.gov/planetary/apod'
     payload = {
         'count': number_images,
@@ -144,55 +152,66 @@ def get_apod_url_list(number_images, nasa_api_key):
         return
 
     links = response.json()
-    
+
     for link in links:
 
         url = link['url']
-        if '.' not in url[-5:-2]:               # link doesn't contain a vaild file
+        if '.' not in url[-5:-2]:        # link doesn't contain a vaild file
             continue
         title = link['title']
-        url_list[title] = url
+        url_dict[title] = url
 
-    bad_links = number_images - len(url_list)   # check if we got enough links
+    bad_links = number_images - len(url_dict)   # check if we got enough links
     if bad_links > 0:
         for x in range(bad_links):
-            url_list.update(return_single_apod_url(nasa_api_key))
-    
-    return url_list
+            url_dict.update(return_single_apod_url(nasa_api_key))
+
+    return url_dict
 
 
-def get_apod_images(name_url_dict):
+def get_apod_images(name_and_url_dict, save_path):
 
-    if not name_url_dict:
+    if not name_and_url_dict:
         print('unable to get a set of links, terminating process')
         return
 
-    save_path = f'./images/nasa/apod/random/{datetime.today().date()}/'
-    Path(save_path).mkdir(parents=True, exist_ok=True)
+    if not save_path.endswith('/'):
+        save_path += '/'
 
-    successfully_fetched = 0
-    print(f'saving {len(name_url_dict)} images to the {save_path} folder')
-    
-    for title, url in name_url_dict.items():
+    fetched_ok = 0
+    print(f'saving {len(name_and_url_dict)} images to the {save_path} folder')
+
+    for title, url in name_and_url_dict.items():
         extension_ = get_file_extention(url)
         file_name = f'{save_path}{title}.{extension_}'
-        successfully_fetched += get_picture(url, file_name)
-    
-    print(f'NASA random APOD images downloaded: {successfully_fetched}')
-    print(f"Couldn't download: {len(name_url_dict) - successfully_fetched} images", '\n')
+        fetched_ok += get_picture(url, file_name)
+
+    print(f'NASA random APOD images downloaded: {fetched_ok}')
+    print(f"Not downloaded {len(name_and_url_dict) - fetched_ok} images", '\n')
 
     return save_path
 
 
-def get_nasa_earth_images(year, month, day, nasa_api):
-    print('Fetching NASA earth images...')
+def get_nasa_earth_images(
+    year,
+    month,
+    day,
+    path_to_save,
+    nasa_api
+):
 
+    print('Fetching NASA earth images...')
     base_url = 'https://api.nasa.gov/EPIC/api/natural/date/'
     target_url = f'{base_url}{year}-{month}-{day}'
     payload = {'api_key': nasa_api}
-    response = requests.get(target_url, params = payload)
-    response.raise_for_status()
-    
+    response = requests.get(target_url, params=payload)
+
+    try:
+        response.raise_for_status()
+    except (requests.HTTPError):
+        print(response.text)
+        return
+
     image_list = []
     successfully_fetched = 0
 
@@ -200,68 +219,116 @@ def get_nasa_earth_images(year, month, day, nasa_api):
         image_list.append(image_meta['image'])
 
     if not image_list:
-        print('Sorry, there are no images for the chosen date or wrong date format')
+        print('Sorry, no images for the chosen date or wrong date format')
         return 0
 
-    save_path = f'./images/nasa/earth/{year}-{month}-{day}/'
     base_url = f'https://api.nasa.gov/EPIC/archive/natural/{year}/{month}/{day}/png/'
-    Path(save_path).mkdir(parents=True, exist_ok=True)
+
+    if not path_to_save.endswith('/'):
+        path_to_save += '/'
 
     for file_name in image_list:
         url = f'{base_url}{file_name}.png'
-        this_file_path = f'{save_path}{file_name}.png'
+        this_file_path = f'{path_to_save}{file_name}.png'
 
         try:
             response = requests.get(url, params=payload)
             response.raise_for_status()
             successfully_fetched += save_file(response.content, this_file_path)
         except (
-        requests.exceptions.HTTPError,
-        requests.exceptions.ConnectionError,
-        requests.exceptions.MissingSchema
+            requests.exceptions.HTTPError,
+            requests.exceptions.ConnectionError,
+            requests.exceptions.MissingSchema
         ):
             print(f'unable to open {url} link')
             pass
 
     print(f'images downloaded: {successfully_fetched}')
-    print(f"couldn't download: {len(image_list) - successfully_fetched} images")
+    print(f"couldn't download {len(image_list) - successfully_fetched} images")
     return 1
+
+
+def find_files_in_dir(path_to_dir):
+    files_list = []
+
+    try:
+        files = os.listdir(path_to_dir)
+    except (FileNotFoundError):
+        return
+
+    for file in files:
+        if os.path.isfile(os.path.join(path_to_dir, file)):
+            files_list.append(file)
+
+    return files_list
+
+
+def post_in_tg_bot(path_to_dir, tg_token, tg_chat_id):       # tg = Telegram;
+    bot = telegram.Bot(token=tg_token)
+    files_list = find_files_in_dir(path_to_dir)
+    if not files_list:
+        print('designated path has no valid files to post')
+        return
+
+    if not path_to_dir.endswith('/'):
+        path_to_dir += '/'
+
+    print(f'sending {len(files_list)} images tho the bot')
+
+    for file in files_list:
+        try:
+            bot.send_document(
+                chat_id=tg_chat_id,
+                document=open(f'{path_to_dir}{file}', 'rb')
+            )
+            print(f'file {file} posted')
+            time.sleep(3.0)                 # to avoid triggering flood control
+        except (FileNotFoundError):
+            print (f'path {path_to_dir}{file} not found')
+            continue
+        except (telegram.error.RetryAfter):
+            print('Flood control raised. Waiting for 1 minute to surpass')
+            time.sleep(60.0)
+            continue
+
+    print(f'done posting {len(files_list)} files')
 
 
 def main():
     load_dotenv()
     nasa_api_key = os.getenv('NASA_API_KEY')
     telegram_token = os.getenv('TELEGRAM_BOT_TOKEN')
-    chat_id = os.getenv('TELEGRAM_CHAT_ID')
+    tg_chat_id = os.getenv('TELEGRAM_CHAT_ID')
+    delay_ = int(os.getenv('IMAGE_POSTING_DELAY_TIME'))
+    daily_number = int(os.getenv('NUMBER_OF_APOD_IMAGES'))
     bot = telegram.Bot(token=telegram_token)
 
-    images = get_apod_url_list(10, nasa_api_key)
+    working_dir = f'./images/{datetime.today().date()}'
+    Path(working_dir).mkdir(parents=True, exist_ok=True)
 
-    get_apod_images(images)
-    # url =  f'https://api.telegram.org/bot{telegram_token}/getUpdates'
+    fetch_spacex_launch_images(working_dir)
+    get_nasa_earth_images('2022', '01', '15', working_dir, nasa_api_key)
 
-    # response = requests.get(url)
-    # response.raise_for_status()
-    # print(response.json())
+    hello_text = 'Hey there! Some earth and SpaceX photos to start with'
+    bot.send_message(chat_id=tg_chat_id, text=hello_text)
+    post_in_tg_bot(working_dir, telegram_token, tg_chat_id)
 
+    hello_text = 'Hey again! Your daily bunch of groovy NASA images. Enjoy!'
 
-    #print(bot.get_me())
-    # updates = bot.get_updates()[-1].message
-    # print(updates)
+    while(True):
 
-    #bot.send_message(chat_id=chat_id, text="Hello, World!")
-    #bot.send_document(chat_id=chat_id, document=open('./images/nasa/apod/last/2022-02-08/Aurora and Light Pillars over Norway.jpg', 'rb'))
-    #print(f'chat_id: {chat_id}')
+        time_ = datetime.now().strftime('%H:%M:%S')
+        apod_dict = get_apod_url_list(daily_number, nasa_api_key)
+        apod_path = f'{working_dir}/{time_}'
+        Path(apod_path).mkdir(parents=True)
+        get_apod_images(apod_dict, apod_path)
 
-    #print(f"nasa api = {nasa_api_key}", f"telegram token = {telegram_token}", sep = '\n')
-    
-    # fetch_spacex_last_launch()
-    # fetch_nasa_apod_last(nasa_api_key)
-    # get_apod_images(get_apod_url_list(30, nasa_api_key))
-    # get_nasa_earth_images('2022', '01', '15', nasa_api_key)
-
+        bot.send_message(chat_id=tg_chat_id, text=hello_text)
+        post_in_tg_bot(apod_path, telegram_token, tg_chat_id)
+        bye_text = f'That\'s it for today! Next bunch is in {delay_/3600} hrs'
+        bot.send_message(tg_chat_id, bye_text)
+        time.sleep(delay_)
 
 
 if __name__ == "__main__":
     main()
- 
