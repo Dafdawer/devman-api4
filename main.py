@@ -2,11 +2,10 @@ import time
 import requests
 import os
 import telegram
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
 from dotenv import load_dotenv
-from time import time
 
 
 def save_file(file_, file_name):
@@ -59,14 +58,10 @@ def fetch_spacex_launch_images(path_to_save):
         path_to_save += '/'
 
     for image_number, image in enumerate(images):
-        fetched_ok += get_picture(
+        get_picture(
             image,
             f'{path_to_save}spacex{image_number}.jpg'
             )
-
-    print(f'successfully downloaded {fetched_ok} out of {len(images)} images,')
-    print(f'destination folder: {path_to_save}')
-    print('\n')
 
 
 def fetch_nasa_apod_last(api_key):
@@ -133,6 +128,8 @@ def return_single_apod_url(nasa_api_key):
 
 
 def get_apod_url_list(number_images, nasa_api_key):
+    if not number_images:
+        number_images = 5
     url_dict = {}
     url = 'https://api.nasa.gov/planetary/apod'
     payload = {
@@ -184,10 +181,7 @@ def get_apod_images(name_and_url_dict, save_path):
     for title, url in name_and_url_dict.items():
         extension_ = get_file_extention(url)
         file_name = f'{save_path}{title}.{extension_}'
-        fetched_ok += get_picture(url, file_name)
-
-    print(f'NASA random APOD images downloaded: {fetched_ok}')
-    print(f"Not downloaded {len(name_and_url_dict) - fetched_ok} images", '\n')
+        get_picture(url, file_name)
 
     return save_path
 
@@ -234,7 +228,7 @@ def get_nasa_earth_images(
         try:
             response = requests.get(url, params=payload)
             response.raise_for_status()
-            successfully_fetched += save_file(response.content, this_file_path)
+            save_file(response.content, this_file_path)
         except (
             requests.exceptions.HTTPError,
             requests.exceptions.ConnectionError,
@@ -243,8 +237,6 @@ def get_nasa_earth_images(
             print(f'unable to open {url} link')
             pass
 
-    print(f'images downloaded: {successfully_fetched}')
-    print(f"couldn't download {len(image_list) - successfully_fetched} images")
     return 1
 
 
@@ -300,7 +292,9 @@ def main():
     telegram_token = os.getenv('TELEGRAM_BOT_TOKEN')
     tg_chat_id = os.getenv('TELEGRAM_CHAT_ID')
     delay_ = int(os.getenv('IMAGE_POSTING_DELAY_TIME'))
-    daily_number = int(os.getenv('NUMBER_OF_APOD_IMAGES'))
+    daily_number = os.getenv('NUMBER_OF_APOD_IMAGES')
+    if daily_number:
+        daily_number = int(daily_number)
     bot = telegram.Bot(token=telegram_token)
 
     working_dir = f'./images/{datetime.today().date()}'
