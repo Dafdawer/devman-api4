@@ -1,6 +1,6 @@
 ## Download a bunch of space images in one go
 
-Get a bunch of space images including NASA pictures of the day and PsaceX launch images
+Get a bunch of space images including NASA pictures of the day and SpaceX launch images
 
 ### Installing
 
