@@ -31,7 +31,7 @@ def save_file(content, file_name):
         with open(file_name, 'wb') as file:
             file.write(content)
             return True
-    except Exception as e:
+    except IOError as e:
         logger.error(e)
         return False
 
@@ -75,12 +75,10 @@ def fetch_spacex_launch_images(path_to_save):
         return
 
     images = response.json()[0]['links']['flickr_images']
-
-    if not path_to_save.endswith('/'):
-        path_to_save += '/'
-
     for number, image in enumerate(images):
-        file_name = f'{path_to_save}spacex{number}.jpg'
+        file_name = os.path.join(
+            path_to_save,
+            f'spacex{number}.jpg')
         get_picture(image, file_name)
 
 
@@ -147,12 +145,12 @@ def get_apod_images(names_and_urls, save_path):
         logging.warning('No APOS urls to get')
         return
 
-    if not save_path.endswith('/'):
-        save_path += '/'
-
     for title, url in names_and_urls.items():
         extension_ = get_file_extention(url)
-        file_name = f'{save_path}{title}.{extension_}'
+        file_name = os.path.join(
+            save_path,
+            f'{title}.{extension_}'
+            )
         get_picture(url, file_name)
 
     return save_path
@@ -182,12 +180,12 @@ def get_nasa_earth_images(
 
     base_url = f'https://api.nasa.gov/EPIC/archive/natural/{year}/{month}/{day}/png/'
 
-    if not path_to_save.endswith('/'):
-        path_to_save += '/'
-
     for file_name in images:
         url = f'{base_url}{file_name}.png'
-        this_file_path = f'{path_to_save}{file_name}.png'
+        this_file_path = os.path.join(
+            path_to_save,
+            f'{file_name}.png'
+            )
 
         response = get_response(url, payload)
         save_file(response.content, this_file_path)
@@ -202,13 +200,14 @@ def find_files_in_dir(path_to_dir):
         logging.error(f'Couldn\'t open {path_to_dir}')
         return
 
-    if not path_to_dir.endswith('/'):
-        path_to_dir += '/'
-
     files_dirs = os.listdir(path_to_dir)
     for file in files_dirs:
         if os.path.isfile(os.path.join(path_to_dir, file)):
-            files.append(f'{path_to_dir}{file}')
+            full_path = os.path.join(
+                path_to_dir,
+                file
+            )
+            files.append(full_path)
 
     return files
 
