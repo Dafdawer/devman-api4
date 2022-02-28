@@ -11,6 +11,11 @@ case of dependency conflicts with python2):
 ```
 pip install -r requirements.txt
 ```
+Install the script by cloning the repository:
+
+```
+git clone https://github.com/Dafdawer/devman-api4.git
+```
 
 [virtualenv/venv](https://docs.python.org/3/library/venv.html) is recommended for the means of project isolation
 
