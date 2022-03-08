@@ -1,7 +1,8 @@
 ## Download a bunch of space images in one go
 
-Get a bunch of space images including NASA pictures of the day and SpaceX launch images
-
+Get a bunch of space images including NASA pictures of the day and SpaceX launch images. The script downloads and posts a bunch of SpaceX and
+NASA Earth images for a start, and then required number of NASA space
+images daily (can be changed to more or less often).
 
 ### **Installing**
 

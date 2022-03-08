@@ -1,7 +1,6 @@
 """ Get a bunch of NASA space images and send them to a Telegram bot"""
 
 from asyncio.log import logger
-from operator import indexOf
 import time
 import requests
 import os
@@ -40,13 +39,13 @@ def download_spacex_images(path_to_save):
         logging.error(f'{url} cannot be accessed')
         return
 
-    images = response.json()[0]['links']['flickr_images']
-    for number, image in enumerate(images):
+    image_links = response.json()[0]['links']['flickr_images']
+    for number, link in enumerate(image_links):
         filepath = os.path.join(
             path_to_save,
             f'spacex{number}.jpg'
             )
-        download_picture(image, filepath)
+        download_picture(link, filepath)
 
 
 def get_file_extention(url):
@@ -60,21 +59,21 @@ def return_single_apod_url(nasa_api_key):
         'count': 1,
         'api_key': nasa_api_key
         }
-    image = {}
-    for x in range(5):      # to make sure we get an image, not video
+    image_title_and_link = {}
+    for try_ in range(5):      # 5 attempts to get 1 file for sure
         response = requests.get(url, params=payload)
         response.raise_for_status()
 
         if not response:
             continue
 
-        resp_json = response.json()[0]
-        image_url = resp_json['url']
-        if '.' not in image_url[-5:-2]:  # no file in the link
+        response_decoded = response.json()[0]
+        image_url = response_decoded['url']
+        if '.' not in image_url[-5:-2]:  # it's video or other link
             continue
 
-        image[resp_json['title']] = image_url   # matching name with the link
-        return image
+        image_title_and_link[response_decoded['title']] = image_url   # matching name with the link
+        return image_title_and_link
 
     return
 
@@ -82,7 +81,7 @@ def return_single_apod_url(nasa_api_key):
 def get_apod_urls(number_images, nasa_api_key):
     if not number_images:
         number_images = 5
-    urls = {}
+    titles_urls = {}
     url = 'https://api.nasa.gov/planetary/apod'
     payload = {
         'count': number_images,
@@ -99,14 +98,14 @@ def get_apod_urls(number_images, nasa_api_key):
         if '.' not in url[-5:-2]:        # link doesn't contain a vaild file
             continue
         title = link['title']
-        urls[title] = url
+        titles_urls[title] = url
 
-    bad_links = number_images - len(urls)   # check if we got enough links
+    bad_links = number_images - len(titles_urls)   # check if we got enough links
     if bad_links > 0:
         for x in range(bad_links):
-            urls.update(return_single_apod_url(nasa_api_key))
+            titles_urls.update(return_single_apod_url(nasa_api_key))
 
-    return urls
+    return titles_urls
 
 
 def download_apod_images(titles_urls, save_path):
@@ -157,7 +156,7 @@ def return_nasa_earth_urls(
 
 
 def find_files_in_dir(dir_path):
-    files = []
+    filenames = []
 
     if not os.path.isdir(dir_path):   # check_path(dir_path).lower() != 'dir':
         logging.error(f'Couldn\'t open {dir_path}')
@@ -170,9 +169,9 @@ def find_files_in_dir(dir_path):
                 dir_path,
                 item
             )
-            files.append(full_path)
+            filenames.append(full_path)
 
-    return files
+    return filenames
 
 
 def post_in_tg(file, tg_token, tg_chat_id):       # tg = Telegram;
@@ -195,6 +194,8 @@ def main():
     daily_number = os.getenv('NUMBER_OF_APOD_IMAGES')
     if daily_number:
         daily_number = int(daily_number)
+    else:
+        daily_number = 5
     bot = telegram.Bot(token=telegram_token)
     working_dir = f'./images/{datetime.today().date()}'
     Path(working_dir).mkdir(parents=True, exist_ok=True)
