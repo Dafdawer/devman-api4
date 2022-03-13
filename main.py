@@ -35,10 +35,6 @@ def download_spacex_images(path_to_save):
     response = requests.get(url, params=payload)
     response.raise_for_status()
 
-    if not response:
-        logging.error(f'{url} cannot be accessed')
-        return
-
     image_links = response.json()[0]['links']['flickr_images']
     for number, link in enumerate(image_links):
         filepath = os.path.join(
@@ -60,27 +56,23 @@ def return_single_apod_url(nasa_api_key):
         'api_key': nasa_api_key
         }
     image_title_and_link = {}
-    for try_ in range(5):      # 5 attempts to get 1 file for sure
+    for _ in range(5):      # 5 attempts to get 1 file for sure
         response = requests.get(url, params=payload)
         response.raise_for_status()
-
-        if not response:
-            continue
 
         response_decoded = response.json()[0]
         image_url = response_decoded['url']
         if '.' not in image_url[-5:-2]:  # it's video or other link
             continue
-
-        image_title_and_link[response_decoded['title']] = image_url   # matching name with the link
+        # matching name with the link
+        image_title_and_link[response_decoded['title']] = image_url
         return image_title_and_link
 
     return
 
 
 def get_apod_urls(number_images, nasa_api_key):
-    if not number_images:
-        number_images = 5
+
     titles_urls = {}
     url = 'https://api.nasa.gov/planetary/apod'
     payload = {
@@ -95,14 +87,15 @@ def get_apod_urls(number_images, nasa_api_key):
     for link in links:
 
         url = link['url']
-        if '.' not in url[-5:-2]:        # link doesn't contain a vaild file
-            continue
+        extension_ = os.path.splitext(url)[1]
+        if not extension_ or len(extension_) > 5:
+            continue    # link to a video not image
         title = link['title']
         titles_urls[title] = url
 
-    bad_links = number_images - len(titles_urls)   # check if we got enough links
+    bad_links = number_images - len(titles_urls)   # enough links check
     if bad_links > 0:
-        for x in range(bad_links):
+        for _ in range(bad_links):
             titles_urls.update(return_single_apod_url(nasa_api_key))
 
     return titles_urls
@@ -148,15 +141,15 @@ def return_nasa_earth_urls(
         return
 
     base_url = f'https://api.nasa.gov/EPIC/archive/natural/{year}/{month}/{day}/png/'
-    for i in range(len(image_urls)):
-        image_url = f'{base_url}{image_urls[i]}.png'  # adding link to the name
-        image_urls[i] = image_url
+    for count in enumerate(image_urls):
+        image_url = f'{base_url}{image_urls[count[0]]}.png'
+        image_urls[count[0]] = image_url
 
     return image_urls
 
 
-def find_files_in_dir(dir_path):
-    filenames = []
+def return_filepaths(dir_path):
+    filepaths = []
 
     if not os.path.isdir(dir_path):   # check_path(dir_path).lower() != 'dir':
         logging.error(f'Couldn\'t open {dir_path}')
@@ -169,19 +162,45 @@ def find_files_in_dir(dir_path):
                 dir_path,
                 item
             )
-            filenames.append(full_path)
+            filepaths.append(full_path)
 
-    return filenames
+    return filepaths
 
 
-def post_in_tg(file, tg_token, tg_chat_id):       # tg = Telegram;
+def post_file_in_tg(filepath, tg_token, tg_chat_id):       # tg = Telegram;
     bot = telegram.Bot(token=tg_token)
 
-    with open(file, 'rb') as doc:
+    with open(filepath, 'rb') as doc:
         bot.send_document(
             chat_id=tg_chat_id,
             document=doc
         )
+
+
+def post_files_in_tg(filepaths, tg_token, tg_chat_id):
+    for filepath in filepaths:
+        try:
+            post_file_in_tg(filepath, tg_token, tg_chat_id)
+            time.sleep(3.0)
+        except (FileNotFoundError):
+            continue
+        except (telegram.error.RetryAfter):
+            logging.warning(
+                'Telegram flood control triggered. Waiting 1 minute'
+                )
+            time.sleep(60.0)
+
+
+def save_request(dir_path, url, payload=None):
+    response = requests.get(url, params=payload)
+    response.raise_for_status()
+    parsed = urlparse(url).path
+    filename = parsed.split('/')[-1]
+    filepath = os.path.join(
+        dir_path,
+        filename
+        )
+    save_file(response.content, filepath)
 
 
 def main():
@@ -222,17 +241,7 @@ def main():
     payload = {'api_key': nasa_api_key}
     for url in urls:
         try:
-            response = requests.get(url, params=payload)
-            response.raise_for_status()
-
-            parsed = urlparse(url).path
-            filename = parsed.split('/')[-1]
-            filepath = os.path.join(
-                working_dir,
-                filename
-                )
-
-            save_file(response.content, filepath)
+            save_request(working_dir, url, payload)
         except Exception as e:
             logger.error(e)
             continue
@@ -241,19 +250,9 @@ def main():
 
     hello_text = 'Hey there! Some earth and SpaceX photos to start with'
     bot.send_message(chat_id=tg_chat_id, text=hello_text)
-    files = find_files_in_dir(working_dir)
+    filepaths = return_filepaths(working_dir)
 
-    for file in files:
-        try:
-            post_in_tg(file, telegram_token, tg_chat_id)
-            time.sleep(3.0)     # to avoid triggering flood control
-        except (FileNotFoundError):
-            continue
-        except (telegram.error.RetryAfter):
-            logging.warning(
-                'Telegram flood control triggered. Waiting 1 minute'
-                )
-            time.sleep(60.0)
+    post_files_in_tg(filepaths, telegram_token, tg_chat_id)
 
     hello_text = 'Hey again! Your daily bunch of groovy NASA images. Enjoy!'
 
@@ -265,21 +264,12 @@ def main():
         Path(apod_path).mkdir(parents=True)
         print('Fetching NASA APOD images')
         download_apod_images(apods, apod_path)
-        files = find_files_in_dir(apod_path)
+        filepaths = return_filepaths(apod_path)
 
         print('Sending daily NASA images to the bot')
         bot.send_message(chat_id=tg_chat_id, text=hello_text)
 
-        for file in files:
-            try:
-                post_in_tg(file, telegram_token, tg_chat_id)
-            except (FileNotFoundError):
-                continue
-            except (telegram.error.RetryAfter):
-                logging.warning(
-                    'Telegram flood control triggered. Waiting 1 minute'
-                )
-                time.sleep(60.0)
+        post_files_in_tg(filepaths, telegram_token, tg_chat_id)
 
         bye_text = f'That\'s it for today! Next bunch is in {delay_/3600} hrs'
         bot.send_message(tg_chat_id, bye_text)
