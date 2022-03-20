@@ -1,8 +1,7 @@
 ## Download a bunch of space images in one go
 
-Get a bunch of space images including NASA pictures of the day and SpaceX launch images. The script downloads and posts a bunch of SpaceX and
-NASA Earth images for a start, and then required number of NASA space
-images daily (can be changed to more or less often).
+Get a bunch of space images including NASA pictures of the day and SpaceX launch images. The script downloads and posts 9 images of SpaceX,
+NASA Earth images and NASA space images daily (can be changed to more or less often).
 
 ### **Installing**
 
@@ -46,6 +45,24 @@ type
 python3 main.py
 ```
 to run the script
+
+
+### __Packages description__
+
+`main.py` does the job. Gets everything together, finds links, donwloads
+and posts. The only package that needs to be run manually.
+
+All the packages below are only used by the program itself. Users don't
+have to worry about them.
+
+`nasa.py` prepares links of NASA Earth images and NASA Astronomy picture
+OF The Day (APOD).
+
+`spacex.py` makes a list of all the SpaceX lanches images available.
+
+`utilities.py` has methods for making working folders on the hard drive,
+downloading files using designated links and seding them to the Telegram
+bot.
 
 
 ### __Project objective__
