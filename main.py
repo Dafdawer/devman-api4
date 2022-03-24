@@ -1,75 +1,53 @@
 """ Get a bunch of NASA space images and send them to a Telegram bot"""
 import logging
-import spacex
-import nasa
-import utilities
+from urllib.error import HTTPError
 import os
 import telegram
+from utilities import make_working_dir, do_tg_posting
 from time import sleep
 from dotenv import load_dotenv
+from random import shuffle
+from spacex import fetch_spacex_images, get_actual_spacex_media
+from nasa import fetch_nasa_images, get_earth_dates
 
 
 def main():
 
     load_dotenv()
-    nasa_api_key = os.getenv('NASA_API_KEY')
     telegram_token = os.getenv('TELEGRAM_BOT_TOKEN')
     tg_chat_id = os.getenv('TELEGRAM_CHAT_ID')
     delay_ = int(os.getenv('IMAGE_POSTING_DELAY_TIME'))
-    bot = telegram.Bot(token=telegram_token)
+    tg_bot = telegram.Bot(token=telegram_token)
 
-    spacex_links = spacex.get_actual_spacex_media()
-    earthimages_dates = nasa.get_earth_dates(nasa_api_key)
-    earth_imagenames = []
-    earth_to_post = []
+    spacex_links = []
+    earth_dates = []
 
     while True:
-        links_for_tg = []
-        working_dir = utilities.make_working_dir()
+        # getting links
         print('Fetching links')
+        try:
+            if not spacex_links:
+                spacex_links = get_actual_spacex_media()
+                shuffle(spacex_links)
+            if not earth_dates:
+                earth_dates = get_earth_dates()
+        except HTTPError as e:
+            logging.warning(e)
 
-        # spacex part
-        spacex_to_post = utilities.pop_three_random(spacex_links)
-        links_for_tg.extend(spacex_to_post)
+        # downloading
+        working_dir = make_working_dir()
+        print('Downloading images')
+        try:
+            fetch_spacex_images(spacex_links, working_dir)
+            fetch_nasa_images(working_dir, earth_dates)
+        except HTTPError as e:
+            logging.warning(e)
 
-        # nasa earth images part
-        if not earth_imagenames:
-            earth_imagenames = nasa.get_guaranteed_earth_imagenames(earthimages_dates)
-            date_ = earth_imagenames.pop(0)     # date used returned in [0] position
-            index = earthimages_dates.index(date_) + 1      # including current used
-            earthimages_dates = earthimages_dates[index:]   # remove used and empty
-
-        earth_to_post = utilities.pop_three_random(earth_imagenames)    # 3 random filenames
-        earth_to_post = nasa.convert_names_to_links(earth_to_post, date_)   # convert to links
-        links_for_tg.extend(earth_to_post)
-
-        # nasa APOD part
-        apod_urls = nasa.return_three_apod_urls(nasa_api_key)
-        links_for_tg.extend(apod_urls)
-
-        print(f'Got {len(links_for_tg)} links. Starting download')
-
-        # download images
-        for link in links_for_tg:
-            try:
-                utilities.download_picture(link, working_dir)
-            except Exception as e:
-                logging.warning(e)
-                continue
-
-        print('Sending images to tg bot')
-
-        # post images
-        hello_text = 'Hey there! Get ready for some cool space pictures'
-        bot.send_message(chat_id=tg_chat_id, text=hello_text)
-
-        filepaths = utilities.return_filepaths(working_dir)
-        utilities.post_files_in_tg(filepaths, telegram_token, tg_chat_id)
-
-        bye_text = f'That\'s it for today! Next bunch is in {delay_/3600} hrs'
-        bot.send_message(chat_id=tg_chat_id, text=bye_text)
-
+        # posting
+        print('Sending images to the bot')
+        do_tg_posting(tg_bot, working_dir, tg_chat_id)
         print('Images have been sent. Wating for the next iteration')
+
         sleep(delay_)
 
 
