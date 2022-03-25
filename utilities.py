@@ -9,7 +9,6 @@ from os import listdir
 from time import sleep
 
 
-
 def make_filepath(url, dirpath):
 
     filename = path.basename(url)
@@ -54,37 +53,14 @@ def return_filepaths(dir_path):
     return filepaths
 
 
-# def post_file_in_tg(filepath, bot, tg_chat_id):       # tg = Telegram;
-
-#     with open(filepath, 'rb') as image:
-#         bot.send_photo(
-#             chat_id=tg_chat_id,
-#             photo=image
-#         )
-
-
-# def post_files_in_tg(filepaths, bot, tg_chat_id):
-#     for filepath in filepaths:
-#         try:
-#             post_file_in_tg(filepath, bot, tg_chat_id)
-#             sleep(3.0)
-#         except (FileNotFoundError):
-#             continue
-#         except (telegram.error.RetryAfter):
-#             logging.warning(
-#                 'Telegram flood control triggered. Waiting 1 minute'
-#                 )
-#             sleep(60.0)
-
-
 def post_files_in_tg(filepaths, bot, tg_chat_id):
     for filepath in filepaths:
         try:
             with open(filepath, 'rb') as image:
                 bot.send_photo(
-                chat_id=tg_chat_id,
-                photo=image
-            )
+                    chat_id=tg_chat_id,
+                    photo=image
+                )
             sleep(3.0)
         except (FileNotFoundError):
             continue

@@ -4,7 +4,6 @@ from os import getenv
 from utilities import download_pictures
 
 
-
 load_dotenv()
 nasa_api_key = getenv('NASA_API_KEY')
 dates = []
@@ -50,7 +49,7 @@ def get_earth_links(dates):
 
         for item in response_content:
             earth_links.append(item['image'])   # only image names so far
-        
+
         if earth_links:         # could be empty list
             earth_links = convert_names_to_links(earth_links, date)
             dates.remove(date)  # remove used date
@@ -60,7 +59,7 @@ def get_earth_links(dates):
 
 
 def return_apod_urls(number=1):
-    urls= []
+    urls = []
     url = 'https://api.nasa.gov/planetary/apod'
     payload = {
         'count': number,
@@ -76,10 +75,10 @@ def return_apod_urls(number=1):
             if item['media_type'] != 'image':
                 continue
             urls.append(item['url'])
-            
+
             if len(urls) >= number:
                 return urls[:number]
-    
+
 
 def fetch_nasa_images(dirpath, dates):
     links = get_earth_links(dates)
