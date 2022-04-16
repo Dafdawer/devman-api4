@@ -62,8 +62,6 @@ def post_files_in_tg(filepaths, bot, tg_chat_id):
                     photo=image
                 )
             sleep(3.0)
-        except (FileNotFoundError):
-            continue
         except (telegram.error.RetryAfter):
             logging.warning(
                 'Telegram flood control triggered. Waiting 1 minute'

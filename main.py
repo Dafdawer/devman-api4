@@ -45,7 +45,7 @@ def main():
             spacex_links = spacex_links[:-3]
 
             earth_links = []
-            while not earth_links:
+            while earth_dates and not earth_links:
                 earth_links = get_earth_links(earth_dates.pop(0))
             download_pictures(earth_links, working_dir)
 
